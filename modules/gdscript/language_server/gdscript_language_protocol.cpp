@@ -276,6 +276,13 @@ Variant GDScriptLanguageProtocol::initialize(const Dictionary &p_params) {
 	client->behavior.use_snippets_for_brace_completion = get_deep(capabilities, false,
 			"textDocument", "completion", "completionItem", "snippetSupport");
 
+	Array allowed_tags = get_deep(capabilities, Array(), "general", "markdown", "allowedTags");
+	for (int i = 0; i < allowed_tags.size(); i++) {
+		if (allowed_tags[i].get_type() == Variant::STRING) {
+			client->behavior.markdown_allowed_tags.insert(allowed_tags[i]);
+		}
+	}
+
 	return ret.to_json();
 }
 

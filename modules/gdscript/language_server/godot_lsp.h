@@ -47,8 +47,8 @@ namespace LSP {
 
 typedef String DocumentUri;
 
-/** Format BBCode documentation from DocData to markdown */
-static String marked_documentation(const String &p_bbcode);
+/** Format BBCode documentation from DocData to markdown, optionally using HTML tags allowed by the client. */
+static String marked_documentation(const String &p_bbcode, const HashSet<String> &p_allowed_tags = {});
 
 /**
  * Text documents are identified using a URI. On the protocol level, URIs are passed as strings.
@@ -1299,13 +1299,13 @@ struct DocumentSymbol {
 		return dict;
 	}
 
-	_FORCE_INLINE_ MarkupContent render() const {
+	_FORCE_INLINE_ MarkupContent render(const HashSet<String> &p_allowed_tags = {}) const {
 		MarkupContent markdown;
 		if (detail.length()) {
 			markdown.value = "\t" + detail + "\n\n";
 		}
 		if (documentation.length()) {
-			markdown.value += marked_documentation(documentation) + "\n\n";
+			markdown.value += marked_documentation(documentation, p_allowed_tags) + "\n\n";
 		}
 		if (script_path.length()) {
 			markdown.value += "Defined in [" + script_path + "](" + uri + ")";
@@ -1908,8 +1908,8 @@ struct GodotCapabilities {
 	}
 };
 
-/** Format BBCode documentation from DocData to markdown */
-static String marked_documentation(const String &p_bbcode) {
+/** Format BBCode documentation from DocData to markdown, optionally using HTML tags allowed by the client. */
+static String marked_documentation(const String &p_bbcode, const HashSet<String> &p_allowed_tags) {
 	String markdown = p_bbcode.strip_edges();
 
 	Vector<String> lines = markdown.split("\n");
@@ -1989,7 +1989,7 @@ static String marked_documentation(const String &p_bbcode) {
 			line = line.replace("[center]", "");
 			line = line.replace("[/center]", "");
 			line = line.replace("[/font]", "");
-			line = line.replace("[/color]", "");
+			line = line.replace("[/color]", p_allowed_tags.has("span") ? "</span>" : "");
 			line = line.replace("[/img]", "");
 
 			// Convert remaining simple bracketed class names to backticks and literal brackets.
@@ -2083,10 +2083,30 @@ static String marked_documentation(const String &p_bbcode) {
 				}
 			}
 
-			// Remove tags with attributes like [color=red], as they don't have a direct Markdown
+			// Convert [color=X] to an HTML span if the client supports it, otherwise strip.
+			{
+				constexpr int COLOR_TAG_PREFIX_LENGTH = 7; // Length of "[color=".
+				int color_pos = 0;
+				while ((color_pos = line.find("[color=", color_pos)) != -1) {
+					int end_pos = line.find_char(']', color_pos);
+					if (end_pos == -1) {
+						break;
+					}
+					if (p_allowed_tags.has("span")) {
+						String color_value = line.substr(color_pos + COLOR_TAG_PREFIX_LENGTH, end_pos - color_pos - COLOR_TAG_PREFIX_LENGTH);
+						String replacement = "<span style=\"color:" + color_value + "\">";
+						line = line.substr(0, color_pos) + replacement + line.substr(end_pos + 1);
+						color_pos += replacement.length();
+					} else {
+						line = line.substr(0, color_pos) + line.substr(end_pos + 1);
+					}
+				}
+			}
+
+			// Remove tags with attributes like [font=Arial], as they don't have a direct Markdown
 			// equivalent supported by external tools.
 			const String attribute_tags[] = {
-				"color", "font", "img"
+				"font", "img"
 			};
 			for (const String &tag_name : attribute_tags) {
 				int tag_pos = 0;

@@ -244,7 +244,8 @@ Dictionary GDScriptTextDocument::resolve(const Dictionary &p_params) {
 	}
 
 	if (symbol) {
-		item.documentation = symbol->render();
+		const HashSet<String> &allowed_tags = GDScriptLanguageProtocol::get_singleton()->get_client_behavior().markdown_allowed_tags;
+		item.documentation = symbol->render(allowed_tags);
 	}
 
 	if (item.kind == LSP::CompletionItemKind::Event) {
@@ -297,9 +298,10 @@ Variant GDScriptTextDocument::hover(const Dictionary &p_params) {
 	params.load(p_params);
 
 	const LSP::DocumentSymbol *symbol = GDScriptLanguageProtocol::get_singleton()->get_workspace()->resolve_symbol(params);
+	const HashSet<String> &allowed_tags = GDScriptLanguageProtocol::get_singleton()->get_client_behavior().markdown_allowed_tags;
 	if (symbol) {
 		LSP::Hover hover;
-		hover.contents = symbol->render();
+		hover.contents = symbol->render(allowed_tags);
 		hover.range.start = params.position;
 		hover.range.end = params.position;
 		return hover.to_json();
@@ -311,7 +313,7 @@ Variant GDScriptTextDocument::hover(const Dictionary &p_params) {
 		GDScriptLanguageProtocol::get_singleton()->resolve_related_symbols(params, list);
 		for (const LSP::DocumentSymbol *&E : list) {
 			if (const LSP::DocumentSymbol *s = E) {
-				contents.push_back(s->render().value);
+				contents.push_back(s->render(allowed_tags).value);
 			}
 		}
 		ret["contents"] = contents;

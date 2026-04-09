@@ -553,10 +553,18 @@ func f():
 		// we don't distinguish markdown inline elements and blocks.
 		CHECK_EQ(LSP::marked_documentation("Line1[br]Line2"), "Line1\n\nLine2");
 
-		// These tags (center, color, font) aren't supported in markdown and should be stripped.
+		// These tags (center, font) aren't supported in markdown and should be stripped.
 		CHECK_EQ(LSP::marked_documentation("[center]Centered text[/center]"), "Centered text");
 		CHECK_EQ(LSP::marked_documentation("[color=red]red text[/color]"), "red text");
 		CHECK_EQ(LSP::marked_documentation("[font=Arial]Arial text[/font]"), "Arial text");
+
+		// When the client allows "span" tags, [color] should be converted to HTML.
+		HashSet<String> allowed_span;
+		allowed_span.insert("span");
+		CHECK_EQ(LSP::marked_documentation("[color=red]red text[/color]", allowed_span),
+				"<span style=\"color:red\">red text</span>");
+		CHECK_EQ(LSP::marked_documentation("[color=#ff0000]hex color[/color]", allowed_span),
+				"<span style=\"color:#ff0000\">hex color</span>");
 
 		// The following tests are for all the link patterns specific to Godot's built-in docs that we render as inline code.
 		CHECK_EQ(LSP::marked_documentation("Class link: [Node2D], [Sprite2D]"), "Class link: `Node2D`, `Sprite2D`");

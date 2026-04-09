@@ -53,6 +53,8 @@ public:
 	struct ClientBehavior {
 		/** If `true` use snippet insert mode to position the cursor between braces of completion options. If `false` strip braces from completion options since we can't provide good UX for them. */
 		bool use_snippets_for_brace_completion = false;
+		/** HTML tags the client allows inside Markdown content (from `general.markdown.allowedTags`). */
+		HashSet<String> markdown_allowed_tags;
 	};
 
 private:
@@ -132,6 +134,13 @@ public:
 	_FORCE_INLINE_ Ref<GDScriptWorkspace> get_workspace() { return workspace; }
 	_FORCE_INLINE_ Ref<GDScriptTextDocument> get_text_document() { return text_document; }
 	_FORCE_INLINE_ SceneCache *get_scene_cache() { return &scene_cache; }
+	_FORCE_INLINE_ const ClientBehavior &get_client_behavior() const {
+		static const ClientBehavior default_behavior;
+		if (latest_client_id == LSP_NO_CLIENT || !clients.has(latest_client_id)) {
+			return default_behavior;
+		}
+		return clients.get(latest_client_id)->behavior;
+	}
 
 	_FORCE_INLINE_ bool is_initialized() const { return _initialized; }
 
